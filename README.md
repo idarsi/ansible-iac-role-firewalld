@@ -1,10 +1,8 @@
 ANSIBLE ROLE FIREWALLD
 ======================
-
 **COPYRIGHT** 2024 Arsi Atomi  
-**LICENSE** GPL-2.0-or-later  
-**AUTHORS**
-
+**LICENSE** MIT License [LICENSE](LICENSE)  
+**AUTHORS**  
 - Arsi Atomi <arsi@atomi.sh>
 
 Overview
@@ -22,6 +20,16 @@ Control machine:
 
 Target machine:
 - DNF package manager
+
+Operations
+----------
+
+Operation                       | State               |
+--------------------------------|---------------------|
+Installing Firewalld            | present             |
+Starting Firewalld service      | started             |
+Stopping Firewalld service      | stopped             |
+
 
 Code Quality
 ------------
