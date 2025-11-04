@@ -1,6 +1,6 @@
-ANSIBLE ROLE FIREWALLD
-======================
-**COPYRIGHT** 2024 Arsi Atomi  
+ANSIBLE-IAC-ROLE-FIREWALLD
+==========================
+**COPYRIGHT** 2025 Arsi Atomi  
 **LICENSE** MIT License [LICENSE](LICENSE)  
 **AUTHORS**  
 - Arsi Atomi <arsi@atomi.sh>
@@ -10,7 +10,7 @@ Overview
 
 This ansible role is meant for easier firewalld management specially with ipsets.
 
-Uses only firewall-cmd command, not any firewalld ansible modules.
+This role uses only ansible.builtin.* ansible modules and firewall-cmd command.
 
 Requirements
 ------------

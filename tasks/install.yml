@@ -1,0 +1,29 @@
+---
+###############################################################################
+#
+# install.yml
+#
+# @author Arsi Atomi
+#
+###############################################################################
+
+- name: "Ensure firewalld is present"
+  ansible.builtin.include_tasks: present.yml
+
+- name: "Ensure firewalld is started"
+  ansible.builtin.include_tasks: started.yml
+
+- name: "Ensure ipsets are present"
+  ansible.builtin.include_tasks: ipset_present.yml
+
+- name: "Ensure ipset ips are present"
+  ansible.builtin.include_tasks: ipset_ip_present.yml
+
+- name: "Ensure ipset ports are open"
+  ansible.builtin.include_tasks: ipset_port_open.yml
+
+- name: "Ensure ipset services are open"
+  ansible.builtin.include_tasks: ipset_service_open.yml
+
+- name: "Ensure rules are reloaded"
+  ansible.builtin.include_tasks: reloaded.yml

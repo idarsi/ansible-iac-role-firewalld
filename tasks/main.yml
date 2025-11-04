@@ -3,13 +3,17 @@
 #
 # main.yml
 #
-# @author Arsi Atomi <arsi@atomi.sh>
+# @author Arsi Atomi
 #
 ###############################################################################
 
 ###############################################################################
 # CHECKING REQUIREMENTS
 ###############################################################################
+
+- name: "Checking if we are in container"
+  ansible.builtin.meta: end_play
+  when: ansible_virtualization_type in ["docker", "podman", "lxc"]
 
 - name: "Checking if operating system is supported"
   ansible.builtin.fail:
@@ -65,11 +69,11 @@
 
 - name: "Ensure firewalld all install related tasks are run"
   ansible.builtin.include_tasks: install.yml
-  when: state == 'install'
+  when: state | default('install') == 'install'
 
 - name: "Ensure firewalld is present"
   ansible.builtin.include_tasks: present.yml
-  when: state | default('present') == 'present'
+  when: state == 'present'
 
 - name: "Ensure firewalld is absent"
   ansible.builtin.include_tasks: absent.yml

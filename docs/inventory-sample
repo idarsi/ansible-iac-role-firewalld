@@ -1,19 +1,20 @@
-firewalld:
+---
+servers:
   hosts:
-    my-machine-1
-    my-machine-2
+    host.example.org:
   vars:
-    fw_ipsets:
-      - name: "ssh"
-        description: "Jumphosts"
-        entries:
-          - 192.168.122.0/24
-        in:
-          services:
-            - ssh
-      - name: "postgresql"
-        entries:
-          - 192.168.122.5/32
-        in:
-          ports:
-            - 5551/tcp
+    firewalld:
+      ipsets:
+        - name: "ssh"
+          description: "Jumphosts"
+          entries:
+            - 192.168.122.0/24
+          in:
+            services:
+              - ssh
+        - name: "postgresql"
+          entries:
+            - 192.168.122.5/32
+          in:
+            ports:
+              - 5551/tcp
