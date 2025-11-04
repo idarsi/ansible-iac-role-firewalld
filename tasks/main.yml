@@ -29,7 +29,7 @@
     msg: "iac_blueprint.{{ iac_service_key }} is not defined"
   when:
     - iac_blueprint is not defined
-    - iac_blueprint.{{ iac_service_key }} is not defined
+    - iac_blueprint.firewalld is not defined
 
 ###############################################################################
 # SETTING VARIABLES
