@@ -18,3 +18,24 @@
     http_proxy: "{{ http_proxy }}"
     https_proxy: "{{ https_proxy }}"
     no_proxy: "{{ no_proxy }}"
+
+###############################################################################
+# ENSURING FILESYSTEM CONFIGURATION
+###############################################################################
+
+- name: "Ensuring filesystem configuration is present"
+  ansible.builtin.include_tasks: fs_present.yml
+  when: iac_blueprint.firewalld.directories is defined
+  vars:
+    iac_fs_directories: "{{ iac_blueprint.firewalld.directories | default([]) }}"
+    iac_fs_files: "{{ iac_blueprint.firewalld.files | default([]) }}"
+
+###############################################################################
+# ENSURING CRONJOB CONFIGURATION
+###############################################################################
+
+- name: "Ensuring cron configuration is present"
+  ansible.builtin.include_tasks: cron_present.yml
+  when: iac_blueprint.firewalld.cron is defined
+  vars:
+    iac_cron: "{{ iac_blueprint.firewalld.cron | default([]) }}"
