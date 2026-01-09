@@ -1,6 +1,6 @@
 ANSIBLE-IAC-ROLE-FIREWALLD
 ==========================
-**COPYRIGHT** 2025 Arsi Atomi  
+**COPYRIGHT** 2026 Arsi Atomi  
 **LICENSE** MIT License [LICENSE](LICENSE)  
 **AUTHORS**  
 - Arsi Atomi <arsi@atomi.sh>
