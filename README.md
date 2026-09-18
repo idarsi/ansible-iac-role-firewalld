@@ -1,3 +1,13 @@
+> **Maturity State: Alpha**<br>
+> **RC Readiness: 18%**
+>
+> **Maturity assessment baseline:** Ref `f651873` records the assessment baseline. The role remains at alpha maturity because it lacks Molecule and CI coverage, comprehensive preflight validation, and dependable idempotent API behavior.
+>
+> **Blockers / next steps:**
+> - Add the missing shared-task submodule checkout and verify it in CI.
+> - Add validation-only, baseline, and lifecycle Molecule scenarios plus CI checks.
+> - Implement comprehensive preflight validation and resolve idempotence and API issues.
+
 ANSIBLE-IAC-ROLE-FIREWALLD
 ==========================
 **COPYRIGHT** 2026 Arsi Atomi  
@@ -11,6 +21,26 @@ Overview
 This ansible role is meant for easier firewalld management specially with ipsets.
 
 This role uses only ansible.builtin.* ansible modules and firewall-cmd command.
+
+Breaking change and migration
+-----------------------------
+Knockd support is no longer part of this role. An existing `knockd.service`,
+package, or configuration is not removed automatically. The removed
+`knockd_present`, `knockd_configuration_present`, and `knockd_absent` states
+must also be removed from callers. Before upgrading:
+
+1. Verify an alternative SSH or other administrative connection to the host.
+2. Remove obsolete `iac_blueprint.firewalld.knockd` inputs from inventory and
+   playbooks.
+3. Define any persistent firewalld services, ports, or rich rules required by
+   the replacement access path.
+4. In a separate, explicit migration, stop and disable `knockd.service` and
+   remove the `knock-server` package.
+5. Remove old Knockd configuration files only after confirming their ownership
+   and that no other automation or service uses them.
+
+The firewalld role performs none of these migration or cleanup actions
+automatically.
 
 Requirements
 ------------
