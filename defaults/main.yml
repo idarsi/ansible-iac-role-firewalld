@@ -44,12 +44,3 @@ fw_interface: ""
 fw_protocol: "tcp"
 fw_ipset_type: "hash:net"
 fw_config_path: "/etc/firewalld/"
-
-fw_knockd_package: "knock-server"
-fw_knockd_service_name: "knockd"
-fw_knockd_conf_path: "/etc/knockd.conf"
-fw_knockd_sysconfig_path: "/etc/sysconfig/knockd"
-fw_knockd_default_zone: "public"
-fw_knockd_default_protocol: "tcp"
-fw_knockd_default_sequence_timeout: 15
-fw_knockd_default_open_duration: 60

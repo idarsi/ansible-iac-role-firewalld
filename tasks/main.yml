@@ -11,10 +11,6 @@
 # CHECKING REQUIREMENTS
 ###############################################################################
 
-- name: "Checking if we are in container"
-  ansible.builtin.meta: end_play
-  when: ansible_virtualization_type in ["docker", "podman", "lxc"]
-
 - name: "Checking if operating system is supported"
   ansible.builtin.fail:
     msg: "Unsupported operating system: {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
@@ -30,6 +26,30 @@
   when:
     - iac_blueprint is not defined or iac_blueprint.firewalld is not defined
 
+- name: "Reject removed Knockd configuration"
+  ansible.builtin.assert:
+    that:
+      - iac_blueprint.firewalld.knockd is not defined
+    fail_msg: >-
+      The iac_blueprint.firewalld.knockd input is no longer supported by this
+      role. Remove the old Knockd input and migrate Knockd explicitly before
+      retrying; this role will not manage or remove Knockd resources.
+
+- name: "Reject removed Knockd states"
+  ansible.builtin.assert:
+    that:
+      - >-
+        state | default("install") not in
+        ["knockd_present", "knockd_configuration_present", "knockd_absent"]
+    fail_msg: >-
+      The state '{{ state | default("install") }}' is no longer supported by
+      this role. Remove the old Knockd state and migrate Knockd explicitly
+      before retrying; this role will not manage or remove Knockd resources.
+
+- name: "Checking if we are in container"
+  ansible.builtin.meta: end_play
+  when: ansible_virtualization_type in ["docker", "podman", "lxc"]
+
 ###############################################################################
 # SETTING VARIABLES
 ###############################################################################
@@ -37,14 +57,6 @@
 - name: "Setting what virtual hosts are to be configured"
   ansible.builtin.set_fact:
     fw_ipsets: "{{ iac_blueprint.firewalld.ipsets | default([]) }}"
-    fw_knockd_configuration: "{{ iac_blueprint.firewalld.knockd.configuration | default({}) }}"
-    fw_knockd_rules: "{{ iac_blueprint.firewalld.knockd.rules | default([]) }}"
-    fw_knockd_effective_interface: >-
-      {{
-        fw_knockd_configuration.interface
-        if (fw_knockd_configuration.interface is defined and fw_knockd_configuration.interface | string | length > 0)
-        else (ansible_facts.default_ipv4.interface | default(''))
-      }}
 
 - name: "Checking proxy address if it's defined"
   ansible.builtin.set_fact:
@@ -145,15 +157,3 @@
 - name: "Ensure firewalld is reloaded"
   ansible.builtin.include_tasks: reloaded.yml
   when: state == 'reloaded'
-
-- name: "Ensure Knockd add-on is present"
-  ansible.builtin.include_tasks: knockd_present.yml
-  when: state == 'knockd_present'
-
-- name: "Ensure Knockd add-on configuration is present"
-  ansible.builtin.include_tasks: knockd_configuration_present.yml
-  when: state == 'knockd_configuration_present'
-
-- name: "Ensure Knockd add-on is absent"
-  ansible.builtin.include_tasks: knockd_absent.yml
-  when: state == 'knockd_absent'
