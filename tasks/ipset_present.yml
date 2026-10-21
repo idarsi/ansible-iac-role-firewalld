@@ -13,32 +13,67 @@
       - fw_ipsets is defined
     fail_msg: "All tests did not pass"
 
-- name: "Collecting ipsets"
-  ansible.builtin.command: >
-    firewall-cmd
-    --get-ipsets
-    --permanent
-  register: ipsets
+- name: "Collecting permanent ipsets"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - --get-ipsets
+      - --permanent
+  register: fw_existing_ipsets
   changed_when: false
 
 - name: "Ensuring ipset is present"
-  ansible.builtin.command: >
-    firewall-cmd
-    --new-ipset="{{ item.name }}"
-    --permanent
-    --type="{{ fw_ipset_type }}"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--new-ipset={{ item.name }}"
+      - --permanent
+      - "--type={{ fw_ipset_type }}"
   loop: "{{ fw_ipsets }}"
-  when: "item.name not in ipsets.stdout.split()"
-  register: my_output
-  changed_when: my_output.rc != 0
+  when: item.name not in fw_existing_ipsets.stdout.split()
+  register: fw_ipset_creations
+  changed_when: fw_ipset_creations.rc == 0
 
-- name: "Ensuring ipset description is set if available"
-  ansible.builtin.command: >
-    firewall-cmd
-    --ipset="{{ item.name }}"
-    --permanent
-    --set-description="{{ item.description }}"
+- name: "Collecting permanent ipsets after creation"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - --get-ipsets
+      - --permanent
+  register: fw_current_ipsets
+  changed_when: false
+
+- name: "Checking ipset descriptions"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--ipset={{ item.name }}"
+      - --get-description
+      - --permanent
   loop: "{{ fw_ipsets }}"
-  when: "item.name in ipsets.stdout.split() and item.description is defined"
-  register: my_output
-  changed_when: my_output.rc != 0
+  loop_control:
+    extended: true
+    label: "{{ item.name }}"
+  when:
+    - item.description is defined
+    - item.name in fw_current_ipsets.stdout.split()
+  register: fw_ipset_descriptions
+  changed_when: false
+
+- name: "Ensuring ipset descriptions are set"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--ipset={{ item.name }}"
+      - --permanent
+      - "--set-description={{ item.description }}"
+  loop: "{{ fw_ipsets }}"
+  loop_control:
+    extended: true
+    label: "{{ item.name }}"
+  when:
+    - item.description is defined
+    - item.name in fw_current_ipsets.stdout.split()
+    - fw_ipset_descriptions.results[ansible_loop.index0].stdout != item.description
+  register: fw_ipset_description_updates
+  changed_when: fw_ipset_description_updates.rc == 0

@@ -7,8 +7,24 @@
 #
 ###############################################################################
 
+- name: "Checking whether service is already open"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--permanent"
+      - "--zone={{ fw_zone }}"
+      - "--query-service={{ fw_service }}"
+  register: fw_service_query
+  changed_when: false
+  failed_when: fw_service_query.rc not in [0, 1]
+
 - name: "Ensuring service is open"
-  ansible.builtin.command: >
-    firewall-cmd --permanent --zone="{{ fw_zone }}" --add-service="{{ fw_service }}"
-  register: my_output
-  changed_when: my_output.rc != 0
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--permanent"
+      - "--zone={{ fw_zone }}"
+      - "--add-service={{ fw_service }}"
+  register: fw_command
+  changed_when: true
+  when: fw_service_query.rc == 1

@@ -7,27 +7,44 @@
 #
 ###############################################################################
 
-- name: "Ensuring required variables are defined"
-  ansible.builtin.assert:
-    that:
-      - fw_ipsets is defined
-    fail_msg: "All tests did not pass"
-
-- name: "Collecting ipsets"
-  ansible.builtin.command: >
-    firewall-cmd
-    --get-ipsets
-    --permanent
-  register: ipsets
+- name: "Collecting permanent ipsets"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - --get-ipsets
+      - --permanent
+  register: fw_ipsets_list
   changed_when: false
 
-- name: "Ensuring ip is present in ipset"
-  ansible.builtin.command: >
-    firewall-cmd
-    --ipset="{{ item.0.name }}"
-    --add-entry="{{ item.1 }}"
-    --permanent
-  loop: "{{ fw_ipsets | subelements('entries') }}"
-  when: "item.0.name in ipsets.stdout.split()"
-  register: my_output
-  changed_when: my_output.rc != 0
+- name: "Checking whether ipset entries are present"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--ipset={{ item.0.name }}"
+      - "--query-entry={{ item.1 }}"
+      - --permanent
+  loop: "{{ fw_ipsets | subelements('entries', skip_missing=True) }}"
+  loop_control:
+    extended: true
+    label: "{{ item.0.name }}:{{ item.1 }}"
+  when: item.0.name in fw_ipsets_list.stdout.split()
+  register: fw_ipset_entry_queries
+  changed_when: false
+  failed_when: fw_ipset_entry_queries.rc not in [0, 1]
+
+- name: "Ensuring ipset entries are present"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--ipset={{ item.0.name }}"
+      - "--add-entry={{ item.1 }}"
+      - --permanent
+  loop: "{{ fw_ipsets | subelements('entries', skip_missing=True) }}"
+  loop_control:
+    extended: true
+    label: "{{ item.0.name }}:{{ item.1 }}"
+  when:
+    - item.0.name in fw_ipsets_list.stdout.split()
+    - fw_ipset_entry_queries.results[ansible_loop.index0].rc == 1
+  register: fw_ipset_entry_additions
+  changed_when: fw_ipset_entry_additions.rc == 0

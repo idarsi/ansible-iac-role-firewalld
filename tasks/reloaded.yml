@@ -11,4 +11,5 @@
   ansible.builtin.command: >
     firewall-cmd --reload
   register: my_output
-  changed_when: my_output.rc != 0
+  changed_when: true
+  failed_when: my_output.rc != 0

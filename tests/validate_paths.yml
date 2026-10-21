@@ -1,0 +1,88 @@
+---
+- name: "Test firewalld filesystem path validation"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    iac_state: "validate"
+    valid_blueprint:
+      firewalld:
+        directories:
+          - path: "/var/lib/firewalld-test/nested"
+        files:
+          - path: "/etc/firewalld-test/config.conf"
+            src: "/var/lib/firewalld-test/source.conf"
+        binds:
+          - source: "/srv/firewalld-test/data"
+            target: "/var/lib/firewalld-test/data"
+    rejected_blueprints:
+      - name: "filesystem root"
+        firewalld:
+          directories:
+            - path: "/"
+      - name: "filesystem root with dot component"
+        firewalld:
+          directories:
+            - path: "/."
+      - name: "filesystem root with repeated slash and dot component"
+        firewalld:
+          files:
+            - path: "//."
+              content: "test"
+      - name: "filesystem parent component"
+        firewalld:
+          files:
+            - path: "/var/lib/../etc/config"
+              content: "test"
+      - name: "file source parent component"
+        firewalld:
+          files:
+            - path: "/var/lib/config"
+              src: "/var/lib/../etc/config"
+      - name: "file source root"
+        firewalld:
+          files:
+            - path: "/var/lib/config"
+              src: "/"
+      - name: "bind source root"
+        firewalld:
+          binds:
+            - source: "/"
+              target: "/var/lib/firewalld-test"
+      - name: "bind target root"
+        firewalld:
+          binds:
+            - source: "/srv/firewalld-test"
+              target: "/"
+      - name: "bind source root with dot component"
+        firewalld:
+          binds:
+            - source: "/."
+              target: "/var/lib/firewalld-test"
+      - name: "bind target root with repeated slash and dot component"
+        firewalld:
+          binds:
+            - source: "/srv/firewalld-test"
+              target: "//."
+      - name: "bind source parent component"
+        firewalld:
+          binds:
+            - source: "/srv/../etc"
+              target: "/var/lib/firewalld-test"
+      - name: "bind target parent component"
+        firewalld:
+          binds:
+            - source: "/srv/firewalld-test"
+              target: "/var/lib/../etc"
+  tasks:
+    - name: "Validate safe absolute filesystem and bind paths"
+      ansible.builtin.include_tasks: "../tasks/validate/validate_inventory.yml"
+      vars:
+        iac_blueprint: "{{ valid_blueprint }}"
+
+    - name: "Check each unsafe path is rejected by the inventory validator"
+      ansible.builtin.include_tasks: "assert_path_rejected.yml"
+      loop: "{{ rejected_blueprints }}"
+      loop_control:
+        loop_var: rejected_case
+        label: "{{ rejected_case.name }}"

@@ -1,0 +1,278 @@
+---
+- name: "Exercise all public firewalld states on KVM"
+  hosts: all
+  become: true
+  vars:
+    iac_blueprint:
+      firewalld:
+        ipsets:
+          - name: "molecule-test"
+            description: "Molecule KVM test set"
+            entries:
+              - "192.0.2.10/32"
+            in:
+              ports:
+                - "8443/tcp"
+              services:
+                - "ssh"
+            out:
+              ports:
+                - "9443/tcp"
+              services:
+                - "https"
+    fw_port: "10022"
+    fw_protocol: "tcp"
+    fw_service: "https"
+  tasks:
+    - name: "Validate blueprint without installing firewalld"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "validate"
+
+    - name: "Install and configure firewalld"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "install"
+
+    - name: "Verify firewalld service is active"
+      ansible.builtin.command: systemctl is-active firewalld.service
+      register: firewalld_active
+      changed_when: false
+      failed_when: firewalld_active.stdout != "active"
+
+    - name: "Verify permanent ipset entries and rich rules"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - "--permanent"
+          - "--ipset=molecule-test"
+          - "--query-entry=192.0.2.10/32"
+      register: ipset_entry
+      changed_when: false
+      failed_when: ipset_entry.rc != 0
+
+    - name: "Ensure Firewalld is present using the targeted state"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "present"
+
+    - name: "Open and verify a port"
+      block:
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "port_open"
+        - ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--zone=public"
+              - "--query-port=10022/tcp"
+          register: port_open
+          changed_when: false
+          failed_when: port_open.rc != 0
+
+    - name: "Close and verify a port"
+      block:
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "port_closed"
+        - ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--zone=public"
+              - "--query-port=10022/tcp"
+          register: port_closed
+          changed_when: false
+          failed_when: port_closed.rc == 0
+
+    - name: "Open and verify a service"
+      block:
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "service_open"
+        - ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--zone=public"
+              - "--query-service=https"
+          register: service_open
+          changed_when: false
+          failed_when: service_open.rc != 0
+
+    - name: "Close and verify a service"
+      block:
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "service_closed"
+        - ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--zone=public"
+              - "--query-service=https"
+          register: service_closed
+          changed_when: false
+          failed_when: service_closed.rc == 0
+
+    - name: "Ensure ipsets are present"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "ipset_present"
+
+    - name: "Exercise ipset entry present and absent states"
+      block:
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "ipset_ip_present"
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "ipset_ip_absent"
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "ipset_ip_present"
+
+    - name: "Exercise ipset port and service rich-rule states"
+      block:
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "ipset_port_open"
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "ipset_service_open"
+
+        - name: "Seed pre-family inbound ipset rules"
+          ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--zone=public"
+              - "--add-rich-rule={{ item }}"
+          loop:
+            - >-
+              rule source ipset='molecule-test' port port=8443 protocol=tcp
+              accept
+            - >-
+              rule source ipset='molecule-test' service name=ssh accept
+          changed_when: true
+
+        - name: "Reject outbound ipset rules without a family"
+          ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--zone=public"
+              - "--add-rich-rule={{ item }}"
+          loop:
+            - >-
+              rule destination ipset='molecule-test' port port=9443 protocol=tcp
+              accept
+            - >-
+              rule destination ipset='molecule-test' service name=https accept
+          register: invalid_outbound_rules
+          changed_when: false
+          failed_when: >-
+            invalid_outbound_rules.rc != 207 or
+            'MISSING_FAMILY' not in invalid_outbound_rules.stderr
+
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "ipset_port_closed"
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "ipset_service_closed"
+
+        - name: >-
+            Verify current inbound and outbound plus legacy inbound ipset rules
+            are absent
+          ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--zone=public"
+              - "--query-rich-rule={{ item }}"
+          loop:
+            - >-
+              rule family="ipv4" source ipset='molecule-test' port port=8443
+              protocol=tcp accept
+            - >-
+              rule source ipset='molecule-test' port port=8443 protocol=tcp
+              accept
+            - >-
+              rule family="ipv4" source ipset='molecule-test' service name=ssh
+              accept
+            - "rule source ipset='molecule-test' service name=ssh accept"
+            - >-
+              rule family="ipv4" destination ipset='molecule-test' port
+              port=9443 protocol=tcp accept
+            - >-
+              rule family="ipv4" destination ipset='molecule-test' service
+              name=https accept
+          register: ipset_rules_after_close
+          changed_when: false
+          failed_when: false
+
+        - name: "Assert all six ipset rich-rule queries ran"
+          ansible.builtin.assert:
+            that:
+              - ipset_rules_after_close.results | length == 6
+
+        - name: "Assert every queried ipset rich rule is absent"
+          ansible.builtin.assert:
+            that:
+              - item.rc == 1
+              - item.stderr == ""
+          loop: "{{ ipset_rules_after_close.results }}"
+          loop_control:
+            label: "{{ item.cmd }}"
+
+    - name: "Reload firewalld rules"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "reloaded"
+
+    - name: "Exercise started and stopped service states"
+      block:
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "stopped"
+        - ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "started"
+
+    - name: "Remove ipset resources"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "ipset_absent"
+
+    - name: "Verify ipset removal"
+      ansible.builtin.command: firewall-cmd --get-ipsets --permanent
+      register: ipsets_after_removal
+      changed_when: false
+      failed_when: "'molecule-test' in ipsets_after_removal.stdout.split()"
+
+    - name: "Remove Firewalld package"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "absent"

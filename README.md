@@ -1,12 +1,13 @@
 > **Maturity State: Alpha**<br>
-> **RC Readiness: 18%**
+> **RC Readiness: 66%**
 >
-> **Maturity assessment baseline:** Ref `f651873` records the assessment baseline. The role remains at alpha maturity because it lacks Molecule and CI coverage, comprehensive preflight validation, and dependable idempotent API behavior.
->
-> **Blockers / next steps:**
-> - Add the missing shared-task submodule checkout and verify it in CI.
-> - Add validation-only, baseline, and lifecycle Molecule scenarios plus CI checks.
-> - Implement comprehensive preflight validation and resolve idempotence and API issues.
+> Reassessed on `update/firewalld-molecule-kvm-states` at `3079f137` with
+> uncommitted working-tree changes. Rocky Linux 9 KVM `molecule test -s
+> kvm_states` succeeded through syntax, create, converge, verify, and destroy
+> (6 successful actions), exercising all documented public states and checking
+> rich-rule closure. This scenario has no idempotence phase, so automated
+> idempotence evidence remains absent and the Alpha state cap applies. See
+> [TESTING.md](TESTING.md) for coverage boundaries.
 
 ANSIBLE-IAC-ROLE-FIREWALLD
 ==========================
@@ -18,77 +19,101 @@ ANSIBLE-IAC-ROLE-FIREWALLD
 Overview
 --------
 
-This ansible role is meant for easier firewalld management specially with ipsets.
+Manage firewalld installation and service lifecycle, permanent zone ports and
+services, and firewalld ipsets with their entries and rich rules. The role uses
+`ansible.builtin.*` modules and the `firewall-cmd` command-line interface.
 
-This role uses only ansible.builtin.* ansible modules and firewall-cmd command.
+Requirements and supported platforms
+-------------------------------------
 
-Breaking change and migration
------------------------------
-Knockd support is no longer part of this role. An existing `knockd.service`,
-package, or configuration is not removed automatically. The removed
-`knockd_present`, `knockd_configuration_present`, and `knockd_absent` states
-must also be removed from callers. Before upgrading:
+- Ansible Core 2.19–2.20 (the supported development/test line is 2.20).
+- DNF-based targets: Rocky Linux 8/9/10 and Red Hat Enterprise Linux 8/9/10.
+- A running systemd host for service and firewall resource states.
+- The `tasks/shared` submodule is required only when using `directories`,
+  `files`, `binds`, or `cron` resources.
 
-1. Verify an alternative SSH or other administrative connection to the host.
-2. Remove obsolete `iac_blueprint.firewalld.knockd` inputs from inventory and
-   playbooks.
-3. Define any persistent firewalld services, ports, or rich rules required by
-   the replacement access path.
-4. In a separate, explicit migration, stop and disable `knockd.service` and
-   remove the `knock-server` package.
-5. Remove old Knockd configuration files only after confirming their ownership
-   and that no other automation or service uses them.
-
-The firewalld role performs none of these migration or cleanup actions
-automatically.
-
-Requirements
-------------
-
-Control machine:
-- Ansible version 2.11 or later
-
-Target machine:
-- DNF package manager
-
-Repository checkout
--------------------
-
-This role includes the shared task library as a Git submodule under
-`tasks/shared`.
-
-Clone the repository with submodules:
+Check out the shared task dependency when those resources are used:
 
 ```bash
 git clone --recurse-submodules https://github.com/idarsi/ansible-iac-role-firewalld.git
-```
-
-If you already cloned the repository without submodules, initialize them with:
-
-```bash
 git submodule update --init --recursive
 ```
 
-Operations
-----------
+Public states
+-------------
 
-Operation                       | State               |
---------------------------------|---------------------|
-Installing Firewalld            | present             |
-Starting Firewalld service      | started             |
-Stopping Firewalld service      | stopped             |
+When `state` is omitted, the role uses `install`.
 
-Shared filesystem helpers
--------------------------
+State | Behavior
+------|---------
+`validate` | Validate the complete blueprint and state without host-runtime checks or mutation. The role's initial supported-OS prerequisite still applies.
+`present` | Install Firewalld and converge optional shared filesystem/cron resources; does not start the service.
+`absent` | Remove the Firewalld package and optional shared resources represented in the blueprint. Firewalld configuration is not explicitly purged.
+`install` | Run `present`, start Firewalld, create ipsets, populate entries and rich rules, then reload.
+`started` / `stopped` | Start or stop the Firewalld systemd service.
+`reloaded` | Run `firewall-cmd --reload`.
+`port_open` / `port_closed` | Add or remove the `fw_port`/`fw_protocol` pair permanently from `fw_zone`.
+`service_open` / `service_closed` | Add or remove `fw_service` permanently from `fw_zone`.
+`ipset_present` / `ipset_absent` | Create or remove the ipsets in the blueprint. Removal also removes matching rich rules.
+`ipset_ip_present` / `ipset_ip_absent` | Add or remove blueprint ipset entries.
+`ipset_port_open` / `ipset_port_closed` | Add or remove inbound/outbound ipset port rich rules.
+`ipset_service_open` / `ipset_service_closed` | Add or remove inbound/outbound ipset service rich rules.
 
-This role supports `directories:`, `files:`, and `binds:` through the shared
-task library under `tasks/shared`.
+`absent` removes the package but does not promise deletion of `/etc/firewalld`
+or other administrator-managed data. No `uninstall` or broad cleanup state is
+provided. Knockd support was removed; the role rejects the obsolete
+`iac_blueprint.firewalld.knockd` field and does not migrate or remove Knockd
+resources.
 
-For the exact `binds:` record structure and examples, see:
+Blueprint
+---------
 
-- `tasks/shared/README.md`
+The service blueprint is a mapping. Resource collections are optional lists.
+The following example demonstrates the ipset schema and defaults:
 
-Code Quality
-------------
+```yaml
+iac_blueprint:
+  firewalld:
+    ipsets:
+      - name: "trusted-networks"
+        description: "Trusted application clients"
+        entries:
+          - "192.0.2.0/24"
+        in:
+          ports:
+            - "8443/tcp"
+          services:
+            - "ssh"
+        out:
+          ports:
+            - "5432/tcp"
+          services:
+            - "https"
+```
 
-This project adheres to the [Ansible Lint](https://ansible-lint.readthedocs.io) **production** profile, ensuring high-quality and production-ready configuration management.
+Supported ipset fields are `name` (required and unique), `description`,
+`entries` (list), and optional `in`/`out` mappings containing `ports` and/or
+`services` lists. Port records use `port/tcp`, `port/udp`, `port/sctp`, or
+`port/dccp` notation. Role variables `fw_zone` (`public`), `fw_protocol`
+(`tcp`), `fw_port` (`22`), `fw_service` (`ssh`), and `fw_ipset_type`
+(`hash:net`) select targeted operation details. `directories`, `files`,
+`binds`, and `cron` are passed through to the shared task library.
+
+Port and service states only affect permanent configuration; run `reloaded`
+or the complete `install` workflow to activate permanent changes immediately.
+The role checks the gathered operating-system name and major version before
+blueprint validation, including for `state: validate`; validation therefore
+requires a target reporting one of the supported platforms above.
+
+Testing
+-------
+
+See [TESTING.md](TESTING.md) for the KVM scenario, CI checks, coverage matrix,
+test-environment prerequisites, and exact commands. The Molecule scenario
+requires the shared Idarsi test environment and KVM/libvirt; it is not run in
+CI.
+
+License
+-------
+
+MIT. See [LICENSE](LICENSE).

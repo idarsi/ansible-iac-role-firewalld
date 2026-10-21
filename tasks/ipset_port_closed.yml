@@ -7,28 +7,112 @@
 #
 ###############################################################################
 
-- name: "Ensuring required variables are defined"
-  ansible.builtin.assert:
-    that:
-      - fw_ipsets is defined
-    fail_msg: "All tests did not pass"
-
-- name: "Ensuring inbound port is closed for ipset"
-  ansible.builtin.command: >
-    firewall-cmd
-    --permanent
-    --remove-rich-rule="rule source ipset='{{ item.0.name }}' port port={{ item.1 | split('/') | first }} protocol={{ item.1 | split('/') | last }} accept"
-    --zone="{{ fw_zone }}"
+- name: "Checking inbound ipset port rules"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - >-
+        --query-rich-rule=rule family="ipv4" source
+        ipset='{{ item.0.name }}' port
+        port={{ item.1 | split('/') | first }}
+        protocol={{ item.1 | split('/') | last }} accept
+      - --permanent
+      - "--zone={{ fw_zone }}"
   loop: "{{ fw_ipsets | selectattr('in.ports', 'defined') | subelements('in.ports') }}"
-  register: my_output
-  changed_when: my_output.rc != 0
+  loop_control:
+    extended: true
+    label: "{{ item.0.name }}:{{ item.1 }}"
+  register: fw_in_port_rule_queries
+  changed_when: false
+  failed_when: fw_in_port_rule_queries.rc not in [0, 1]
 
-- name: "Ensuring outbound port is closed for ipset"
-  ansible.builtin.command: >
-    firewall-cmd
-    --permanent
-    --remove-rich-rule="rule destination ipset='{{ item.0.name }}' port port={{ item.1 | split('/') | first }} protocol={{ item.1 | split('/') | last }} accept"
-    --zone="{{ fw_zone }}"
+- name: "Checking legacy inbound ipset port rules"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - >-
+        --query-rich-rule=rule source ipset='{{ item.0.name }}' port
+        port={{ item.1 | split('/') | first }}
+        protocol={{ item.1 | split('/') | last }} accept
+      - --permanent
+      - "--zone={{ fw_zone }}"
+  loop: "{{ fw_ipsets | selectattr('in.ports', 'defined') | subelements('in.ports') }}"
+  loop_control:
+    extended: true
+    label: "{{ item.0.name }}:{{ item.1 }}"
+  register: fw_in_port_legacy_rule_queries
+  changed_when: false
+  failed_when: fw_in_port_legacy_rule_queries.rc not in [0, 1]
+
+- name: "Ensuring inbound ipset port rules are closed"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - >-
+        --remove-rich-rule=rule family="ipv4" source
+        ipset='{{ item.0.name }}' port
+        port={{ item.1 | split('/') | first }}
+        protocol={{ item.1 | split('/') | last }} accept
+      - --permanent
+      - "--zone={{ fw_zone }}"
+  loop: "{{ fw_ipsets | selectattr('in.ports', 'defined') | subelements('in.ports') }}"
+  loop_control:
+    extended: true
+    label: "{{ item.0.name }}:{{ item.1 }}"
+  when: fw_in_port_rule_queries.results[ansible_loop.index0].rc == 0
+  register: fw_in_port_rule_removals
+  changed_when: fw_in_port_rule_removals.rc == 0
+
+- name: "Ensuring legacy inbound ipset port rules are closed"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - >-
+        --remove-rich-rule=rule source ipset='{{ item.0.name }}' port
+        port={{ item.1 | split('/') | first }}
+        protocol={{ item.1 | split('/') | last }} accept
+      - --permanent
+      - "--zone={{ fw_zone }}"
+  loop: "{{ fw_ipsets | selectattr('in.ports', 'defined') | subelements('in.ports') }}"
+  loop_control:
+    extended: true
+    label: "{{ item.0.name }}:{{ item.1 }}"
+  when: fw_in_port_legacy_rule_queries.results[ansible_loop.index0].rc == 0
+  register: fw_in_port_legacy_rule_removals
+  changed_when: fw_in_port_legacy_rule_removals.rc == 0
+
+- name: "Checking outbound ipset port rules"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - >-
+        --query-rich-rule=rule family="ipv4" destination ipset='{{ item.0.name }}' port
+        port={{ item.1 | split('/') | first }}
+        protocol={{ item.1 | split('/') | last }} accept
+      - --permanent
+      - "--zone={{ fw_zone }}"
   loop: "{{ fw_ipsets | selectattr('out.ports', 'defined') | subelements('out.ports') }}"
-  register: my_output
-  changed_when: my_output.rc != 0
+  loop_control:
+    extended: true
+    label: "{{ item.0.name }}:{{ item.1 }}"
+  register: fw_out_port_rule_queries
+  changed_when: false
+  failed_when: fw_out_port_rule_queries.rc not in [0, 1]
+
+- name: "Ensuring outbound ipset port rules are closed"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - >-
+        --remove-rich-rule=rule family="ipv4" destination ipset='{{ item.0.name }}' port
+        port={{ item.1 | split('/') | first }}
+        protocol={{ item.1 | split('/') | last }} accept
+      - --permanent
+      - "--zone={{ fw_zone }}"
+  loop: "{{ fw_ipsets | selectattr('out.ports', 'defined') | subelements('out.ports') }}"
+  loop_control:
+    extended: true
+    label: "{{ item.0.name }}:{{ item.1 }}"
+  when: fw_out_port_rule_queries.results[ansible_loop.index0].rc == 0
+  register: fw_out_port_rule_removals
+  changed_when: fw_out_port_rule_removals.rc == 0
