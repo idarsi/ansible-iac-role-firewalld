@@ -7,11 +7,24 @@
 #
 ###############################################################################
 
+- name: "Checking whether port is open"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--query-port={{ fw_port }}/{{ fw_protocol }}"
+      - "--permanent"
+      - "--zone={{ fw_zone }}"
+  register: fw_port_query
+  changed_when: false
+  failed_when: fw_port_query.rc not in [0, 1]
+
 - name: "Ensuring port is closed"
-  ansible.builtin.command: >
-    firewall-cmd
-    --remove-port="{{ fw_port }}/{{ fw_protocol }}"
-    --permanent
-    --zone="{{ fw_zone }}"
-  register: my_output
-  changed_when: my_output.rc != 0
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--remove-port={{ fw_port }}/{{ fw_protocol }}"
+      - "--permanent"
+      - "--zone={{ fw_zone }}"
+  register: fw_command
+  changed_when: true
+  when: fw_port_query.rc == 0

@@ -1,0 +1,349 @@
+---
+###############################################################################
+#
+# validate_inventory.yml
+#
+# @author Arsi Atomi
+#
+###############################################################################
+
+###############################################################################
+# VALIDATING BLUEPRINT TYPES AND STATE
+###############################################################################
+
+- name: "Checking firewalld service blueprint type"
+  ansible.builtin.assert:
+    that:
+      - iac_blueprint.firewalld | type_debug == "dict"
+    fail_msg: "iac_blueprint.firewalld must be a mapping"
+
+- name: "Reject removed Knockd states"
+  ansible.builtin.assert:
+    that:
+      - iac_state not in ["knockd_present", "knockd_configuration_present", "knockd_absent"]
+    fail_msg: >-
+      The state '{{ iac_state }}' is no longer supported. Remove the obsolete
+      Knockd state and migrate Knockd resources explicitly.
+
+- name: "Checking requested firewalld state"
+  ansible.builtin.assert:
+    that:
+      - >-
+        iac_state in ["validate", "install", "present", "absent", "started",
+        "stopped", "port_open", "port_closed", "service_open", "service_closed",
+        "ipset_present", "ipset_absent", "ipset_ip_present", "ipset_ip_absent",
+        "ipset_port_open", "ipset_port_closed", "ipset_service_open",
+        "ipset_service_closed", "reloaded"]
+    fail_msg: "Unsupported firewalld state '{{ iac_state }}'"
+
+- name: "Reject removed Knockd configuration"
+  ansible.builtin.assert:
+    that:
+      - iac_blueprint.firewalld.knockd is not defined
+    fail_msg: >-
+      The iac_blueprint.firewalld.knockd input is no longer supported. Remove
+      the obsolete input and migrate Knockd resources explicitly.
+
+- name: "Checking optional firewalld resource collection types"
+  ansible.builtin.assert:
+    that:
+      - item.value | type_debug == "list"
+    fail_msg: "iac_blueprint.firewalld.{{ item.key }} must be a list"
+  loop:
+    - { key: "ipsets", value: "{{ iac_blueprint.firewalld.ipsets | default([]) }}" }
+    - { key: "directories", value: "{{ iac_blueprint.firewalld.directories | default([]) }}" }
+    - { key: "files", value: "{{ iac_blueprint.firewalld.files | default([]) }}" }
+    - { key: "binds", value: "{{ iac_blueprint.firewalld.binds | default([]) }}" }
+    - { key: "cron", value: "{{ iac_blueprint.firewalld.cron | default([]) }}" }
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: "Checking directory, file, bind, and cron record types"
+  ansible.builtin.assert:
+    that:
+      - item | type_debug == "dict"
+    fail_msg: "Every firewalld filesystem and cron record must be a mapping"
+  loop: >-
+    {{ (iac_blueprint.firewalld.directories | default([]))
+       + (iac_blueprint.firewalld.files | default([]))
+       + (iac_blueprint.firewalld.binds | default([]))
+       + (iac_blueprint.firewalld.cron | default([])) }}
+  loop_control:
+    label: "{{ item.path | default(item.name | default('unnamed')) }}"
+
+- name: "Checking filesystem paths"
+  ansible.builtin.assert:
+    that:
+      - item.path is defined
+      - item.path | type_debug == "str"
+      - item.path | type_debug != "str" or (item.path | length > 0 and item.path is match('^/'))
+      - item.path | type_debug != "str" or (item.path.split('/') | reject('in', ['', '.']) | list | length > 0)
+      - item.path | type_debug != "str" or '..' not in item.path.split('/')
+    fail_msg: "[PATH_VALIDATION] Filesystem records require a non-empty absolute path without dot or parent components"
+  loop: "{{ (iac_blueprint.firewalld.directories | default([])) + (iac_blueprint.firewalld.files | default([])) }}"
+  loop_control:
+    label: "{{ item.path | default('unnamed') }}"
+
+- name: "Checking filesystem and cron record fields"
+  ansible.builtin.assert:
+    that:
+      - item.selinux is not defined or item.selinux | type_debug == "dict"
+    fail_msg: "Filesystem record selinux must be a mapping"
+  loop: "{{ (iac_blueprint.firewalld.directories | default([])) + (iac_blueprint.firewalld.files | default([])) }}"
+  loop_control:
+    label: "{{ item.path | default('unnamed') }}"
+
+- name: "Checking SELinux filesystem record fields"
+  ansible.builtin.assert:
+    that:
+      - item.selinux.setype is defined
+      - item.selinux.setype | type_debug == "str"
+      - item.selinux.recursive is not defined or item.selinux.recursive | type_debug == "bool"
+    fail_msg: "SELinux filesystem records require a string setype and boolean recursive value"
+  loop: "{{ (iac_blueprint.firewalld.directories | default([])) + (iac_blueprint.firewalld.files | default([])) }}"
+  loop_control:
+    label: "{{ item.path | default('unnamed') }}"
+  when: item.selinux is defined
+
+- name: "Checking directory shared-task fields"
+  ansible.builtin.assert:
+    that:
+      - item.state is not defined or (item.state | type_debug == "str" and item.state in ["absent", "directory", "file", "touch"])
+      - item.owner is not defined or item.owner | type_debug in ["str", "int"]
+      - item.group is not defined or item.group | type_debug in ["str", "int"]
+      - item.mode is not defined or item.mode | type_debug in ["str", "int"]
+    fail_msg: "Directory state, owner, group, and mode must use values accepted by ansible.builtin.file"
+  loop: "{{ iac_blueprint.firewalld.directories | default([]) }}"
+  loop_control:
+    label: "{{ item.path | default('unnamed') }}"
+
+- name: "Checking file shared-task fields"
+  ansible.builtin.assert:
+    that:
+      - item.owner is not defined or item.owner | type_debug in ["str", "int"]
+      - item.group is not defined or item.group | type_debug in ["str", "int"]
+      - item.mode is not defined or item.mode | type_debug in ["str", "int"]
+    fail_msg: "File owner, group, and mode must use values accepted by ansible.builtin.copy"
+  loop: "{{ iac_blueprint.firewalld.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | default('unnamed') }}"
+
+- name: "Checking file source paths"
+  ansible.builtin.assert:
+    that:
+      - item.src is not defined or item.src | type_debug == "str"
+      - item.src is not defined or item.src | type_debug != "str" or item.src is match('^/')
+      - item.src is not defined or item.src | type_debug != "str" or (item.src.split('/') | reject('in', ['', '.']) | list | length > 0)
+      - item.src is not defined or item.src | type_debug != "str" or '..' not in item.src.split('/')
+    fail_msg: "[PATH_VALIDATION] File source paths must be absolute and contain no dot or parent components"
+  loop: "{{ iac_blueprint.firewalld.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | default('unnamed') }}"
+
+- name: "Checking file payload fields"
+  ansible.builtin.assert:
+    that:
+      - not (item.content is defined and item.src is defined)
+      - iac_state == "absent" or (item.content is defined or item.src is defined)
+      - item.content is not defined or item.content | type_debug == "str"
+      - item.src is not defined or item.src | type_debug == "str"
+      - item.remote_src is not defined or item.remote_src | type_debug == "bool"
+      - item.remote_src is not defined or item.remote_src | bool == false or item.src is defined
+    fail_msg: "File records require at most one string content or absolute src path and a boolean remote_src"
+  loop: "{{ iac_blueprint.firewalld.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | default('unnamed') }}"
+
+- name: "Checking bind paths"
+  ansible.builtin.assert:
+    that:
+      - item.source is defined
+      - item.target is defined
+      - item.source | type_debug == "str"
+      - item.target | type_debug == "str"
+      - item.source | type_debug != "str" or item.source is match('^/')
+      - item.target | type_debug != "str" or item.target is match('^/')
+      - item.source | type_debug != "str" or (item.source.split('/') | reject('in', ['', '.']) | list | length > 0)
+      - item.target | type_debug != "str" or (item.target.split('/') | reject('in', ['', '.']) | list | length > 0)
+      - item.source | type_debug != "str" or '..' not in item.source.split('/')
+      - item.target | type_debug != "str" or '..' not in item.target.split('/')
+      - item.source != item.target
+    fail_msg: "[PATH_VALIDATION] Bind paths must be distinct absolute paths without dot or parent components"
+  loop: "{{ iac_blueprint.firewalld.binds | default([]) }}"
+  loop_control:
+    label: "{{ item.target | default('unnamed') }}"
+
+- name: "Checking bind record fields"
+  ansible.builtin.assert:
+    that:
+      - item.owner is not defined or item.owner | type_debug in ["str", "int"]
+      - item.group is not defined or item.group | type_debug in ["str", "int"]
+      - item.mode is not defined or item.mode | type_debug in ["str", "int"]
+      - item.move_from_target is not defined or item.move_from_target | type_debug == "bool"
+      - item.purge_on_absent is not defined or item.purge_on_absent | type_debug == "bool"
+    fail_msg: "Bind paths must be distinct absolute strings; ownership, mode, and migration/removal options must have valid types"
+  loop: "{{ iac_blueprint.firewalld.binds | default([]) }}"
+  loop_control:
+    label: "{{ item.target | default('unnamed') }}"
+
+- name: "Checking cron record fields"
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.cron_file is defined
+      - item.name | type_debug == "str"
+      - item.cron_file | type_debug == "str"
+      - item.name | type_debug != "str" or item.name | trim | length > 0
+      - item.cron_file | type_debug != "str" or item.cron_file is match('^[A-Za-z0-9_.-]+$')
+      - item.cron_file | type_debug != "str" or item.cron_file not in [".", ".."]
+      - item.state is not defined or item.state | type_debug == "str"
+      - item.state is not defined or item.state in ["present", "absent"]
+      - item.user is not defined or item.user | type_debug == "str"
+      - item.special_time is not defined or item.special_time | type_debug == "str"
+      - item.month is not defined or item.month | type_debug in ["str", "int"]
+      - item.day is not defined or item.day | type_debug in ["str", "int"]
+      - item.weekday is not defined or item.weekday | type_debug in ["str", "int"]
+      - item.hour is not defined or item.hour | type_debug in ["str", "int"]
+      - item.minute is not defined or item.minute | type_debug in ["str", "int"]
+      - (item.state | default('present')) == "absent" or iac_state == "absent" or item.job is defined
+      - item.job is not defined or item.job | type_debug == "str"
+    fail_msg: "Cron records require a non-empty string name and safe cron filename; job, user, state, and schedule fields must use supported types"
+  loop: "{{ iac_blueprint.firewalld.cron | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+
+- name: "Checking ipset record types"
+  ansible.builtin.assert:
+    that:
+      - item | type_debug == "dict"
+    fail_msg: "Each firewalld ipset must be a mapping"
+  loop: "{{ iac_blueprint.firewalld.ipsets | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+
+- name: "Checking ipset names and uniqueness"
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name | type_debug == "str"
+      - item.name is match('^[A-Za-z0-9_.+-]+$')
+    fail_msg: "Firewalld ipsets require names containing only letters, digits, _, ., +, or -"
+  loop: "{{ iac_blueprint.firewalld.ipsets | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+
+- name: "Checking ipset name uniqueness"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (iac_blueprint.firewalld.ipsets | default([]) | map(attribute='name')
+        | list | unique | length) == (iac_blueprint.firewalld.ipsets | default([]) | length)
+    fail_msg: "Firewalld ipset names must be unique"
+
+- name: "Checking ipset entry and direction shapes"
+  ansible.builtin.assert:
+    that:
+      - item.entries is not defined or item.entries | type_debug == "list"
+      - item.in is not defined or item.in | type_debug == "dict"
+      - item.out is not defined or item.out | type_debug == "dict"
+      - item.in is not defined or item.in.ports is not defined or item.in.ports | type_debug == "list"
+      - item.in is not defined or item.in.services is not defined or item.in.services | type_debug == "list"
+      - item.out is not defined or item.out.ports is not defined or item.out.ports | type_debug == "list"
+      - item.out is not defined or item.out.services is not defined or item.out.services | type_debug == "list"
+    fail_msg: "ipset '{{ item.name }}' entries, in, out, ports, and services must use the documented list/mapping types"
+  loop: "{{ iac_blueprint.firewalld.ipsets | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Checking ipset descriptions and entry values"
+  ansible.builtin.assert:
+    that:
+      - item.description is not defined or item.description | type_debug == "str"
+    fail_msg: "ipset descriptions must be strings"
+  loop: "{{ iac_blueprint.firewalld.ipsets | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Checking ipset entry element types"
+  ansible.builtin.assert:
+    that:
+      - item.1 | type_debug == "str"
+    fail_msg: "ipset entries must be strings"
+  loop: "{{ iac_blueprint.firewalld.ipsets | default([]) | selectattr('entries', 'defined') | subelements('entries') }}"
+  loop_control:
+    label: "{{ item.0.name }}:{{ item.1 }}"
+
+- name: "Checking ipset entry values"
+  ansible.builtin.assert:
+    that:
+      - item.1 | length > 0
+      - item.1 is not search('\s')
+    fail_msg: "ipset entries must be non-empty strings without whitespace"
+  loop: "{{ iac_blueprint.firewalld.ipsets | default([]) | selectattr('entries', 'defined') | subelements('entries') }}"
+  loop_control:
+    label: "{{ item.0.name }}:{{ item.1 }}"
+
+- name: "Checking ipset port element types"
+  ansible.builtin.assert:
+    that:
+      - item.1 | type_debug == "str"
+    fail_msg: "ipset rich-rule ports must be strings"
+  loop: >-
+    {{ (iac_blueprint.firewalld.ipsets | default([])
+        | selectattr('in.ports', 'defined') | subelements('in.ports'))
+       + (iac_blueprint.firewalld.ipsets | default([])
+        | selectattr('out.ports', 'defined') | subelements('out.ports')) }}
+  loop_control:
+    label: "{{ item.0.name }}:{{ item.1 }}"
+
+- name: "Checking ipset service element types"
+  ansible.builtin.assert:
+    that:
+      - item.1 | type_debug == "str"
+    fail_msg: "ipset rich-rule services must be strings"
+  loop: >-
+    {{ (iac_blueprint.firewalld.ipsets | default([])
+        | selectattr('in.services', 'defined') | subelements('in.services'))
+       + (iac_blueprint.firewalld.ipsets | default([])
+        | selectattr('out.services', 'defined') | subelements('out.services')) }}
+  loop_control:
+    label: "{{ item.0.name }}:{{ item.1 }}"
+
+- name: "Checking ipset service values"
+  ansible.builtin.assert:
+    that:
+      - item.1 is match('^[A-Za-z0-9_.+-]+$')
+    fail_msg: "ipset rich-rule services must use service-name notation"
+  loop: >-
+    {{ (iac_blueprint.firewalld.ipsets | default([])
+        | selectattr('in.services', 'defined') | subelements('in.services'))
+       + (iac_blueprint.firewalld.ipsets | default([])
+        | selectattr('out.services', 'defined') | subelements('out.services')) }}
+  loop_control:
+    label: "{{ item.0.name }}:{{ item.1 }}"
+
+- name: "Checking ipset ports"
+  ansible.builtin.assert:
+    that:
+      - item.1 is string
+      - item.1 is match('^[0-9]{1,5}/(tcp|udp|sctp|dccp)$')
+      - item.1.split('/') | first | int >= 1
+      - item.1.split('/') | first | int <= 65535
+    fail_msg: "ipset rich-rule ports must use port/protocol notation with a valid port and protocol"
+  loop: >-
+    {{ (iac_blueprint.firewalld.ipsets | default([])
+        | selectattr('in.ports', 'defined') | subelements('in.ports'))
+       + (iac_blueprint.firewalld.ipsets | default([])
+        | selectattr('out.ports', 'defined') | subelements('out.ports')) }}
+  loop_control:
+    label: "{{ item.0.name }}:{{ item.1 }}"
+
+- name: "Checking targeted port and service state inputs"
+  ansible.builtin.assert:
+    that:
+      - iac_state not in ["port_open", "port_closed"] or fw_port is defined
+      - iac_state not in ["service_open", "service_closed"] or fw_service is defined
+      - iac_state not in ["port_open", "port_closed"] or fw_protocol in ["tcp", "udp", "sctp", "dccp"]
+      - iac_state not in ["port_open", "port_closed"] or fw_port | string is match('^[0-9]{1,5}$')
+      - iac_state not in ["port_open", "port_closed"] or (fw_port | int >= 1 and fw_port | int <= 65535)
+    fail_msg: "Port states require fw_port in 1..65535 and a supported fw_protocol; service states require fw_service"

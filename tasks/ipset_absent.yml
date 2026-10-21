@@ -41,7 +41,7 @@
     --remove-rich-rule="{{ item }}"
   loop: "{{ rich_rule_list }}"
   register: my_output
-  changed_when: my_output.rc != 0
+  changed_when: my_output.stdout == "success"
 
 - name: "Ensuring ipset is absent"
   ansible.builtin.command: >
@@ -51,4 +51,4 @@
   loop: "{{ fw_ipsets }}"
   when: "item.name in ipsets.stdout.split()"
   register: my_output
-  changed_when: my_output.rc != 0
+  changed_when: my_output.stdout == "success"
