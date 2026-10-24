@@ -8,7 +8,7 @@ coverage and is not run by GitHub Actions.
 
 Platform/image | Ansible or application versions | Molecule scenarios | Main coverage
 ---------------|---------------------------------|--------------------|--------------
-Rocky Linux 9 KVM guest from the shared Rocky 9 install ISO | Ansible Core 2.20.8 (`ansible-current`) | `kvm_states` | Validation-only state; installation; present/absent; started/stopped; permanent port and service open/close; ipset create/remove, entry add/remove, port/service rich-rule open/close; reload; package-removal verification.
+Rocky Linux 9 KVM guest from the shared Rocky 9 install ISO | Ansible Core 2.20.8 (`ansible-current`) | `kvm_states` | Validation-only state; installation; present/absent; started/stopped with boot enablement checks; permanent port and service open/close; ipset create/remove, entry add/remove, port/service rich-rule open/close; reload; package-removal verification.
 
 The scenario covers every documented public state on one Rocky Linux 9 guest.
 It does not establish automated coverage for every operating system version in

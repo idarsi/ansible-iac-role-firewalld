@@ -42,6 +42,12 @@
       changed_when: false
       failed_when: firewalld_active.stdout != "active"
 
+    - name: "Verify install enables firewalld at boot"
+      ansible.builtin.command: systemctl is-enabled firewalld.service
+      register: firewalld_install_enabled
+      changed_when: false
+      failed_when: firewalld_install_enabled.stdout != "enabled"
+
     - name: "Verify permanent ipset entries and rich rules"
       ansible.builtin.command:
         argv:
@@ -254,10 +260,30 @@
             name: ansible-iac-role-firewalld
           vars:
             state: "stopped"
+        - name: "Verify firewalld is disabled at boot"
+          ansible.builtin.command: systemctl is-enabled firewalld.service
+          register: firewalld_disabled
+          changed_when: false
+          failed_when: firewalld_disabled.stdout != "disabled"
+        - name: "Verify firewalld is stopped"
+          ansible.builtin.command: systemctl is-active firewalld.service
+          register: firewalld_stopped
+          changed_when: false
+          failed_when: firewalld_stopped.stdout != "inactive"
         - ansible.builtin.include_role:
             name: ansible-iac-role-firewalld
           vars:
             state: "started"
+        - name: "Verify firewalld is enabled at boot"
+          ansible.builtin.command: systemctl is-enabled firewalld.service
+          register: firewalld_enabled
+          changed_when: false
+          failed_when: firewalld_enabled.stdout != "enabled"
+        - name: "Verify firewalld is started"
+          ansible.builtin.command: systemctl is-active firewalld.service
+          register: firewalld_started
+          changed_when: false
+          failed_when: firewalld_started.stdout != "active"
 
     - name: "Add unrelated ipset ACCEPT rich rule"
       ansible.builtin.command:
