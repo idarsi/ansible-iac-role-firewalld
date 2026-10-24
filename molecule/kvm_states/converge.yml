@@ -259,6 +259,41 @@
           vars:
             state: "started"
 
+    - name: "Add unrelated ipset ACCEPT rich rule"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - >-
+            --add-rich-rule=rule family="ipv4" source
+            ipset='molecule-test' log prefix="unrelated-" accept
+          - --permanent
+          - "--zone=public"
+      changed_when: true
+
+    - name: "Seed legacy ipset source rules for removal regression"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - "--add-rich-rule={{ item }}"
+          - --permanent
+          - "--zone=public"
+      loop:
+        - >-
+          rule source ipset='molecule-test' port port=8443 protocol=tcp accept
+        - "rule source ipset='molecule-test' service name=ssh accept"
+      changed_when: true
+
+    - name: "Seed unrelated same-shape ipset ACCEPT rule"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - >-
+            --add-rich-rule=rule family="ipv4" source
+            ipset='molecule-test' port port=12345 protocol=tcp accept
+          - --permanent
+          - "--zone=public"
+      changed_when: true
+
     - name: "Remove ipset resources"
       ansible.builtin.include_role:
         name: ansible-iac-role-firewalld
@@ -270,6 +305,84 @@
       register: ipsets_after_removal
       changed_when: false
       failed_when: "'molecule-test' in ipsets_after_removal.stdout.split()"
+
+    - name: "Verify legacy ipset source rules were removed"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - "--query-rich-rule={{ item }}"
+          - --permanent
+          - "--zone=public"
+      loop:
+        - >-
+          rule source ipset='molecule-test' port port=8443 protocol=tcp accept
+        - "rule source ipset='molecule-test' service name=ssh accept"
+      register: legacy_ipset_rules_after_removal
+      changed_when: false
+      failed_when: legacy_ipset_rules_after_removal.rc != 1
+
+    - name: "Verify unrelated ipset ACCEPT rich rule remains"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - >-
+            --query-rich-rule=rule family="ipv4" source
+            ipset='molecule-test' log prefix="unrelated-" accept
+          - --permanent
+          - "--zone=public"
+      register: unrelated_ipset_rule
+      changed_when: false
+      failed_when: unrelated_ipset_rule.rc != 0
+
+    - name: "Verify unrelated same-shape ipset rule remains"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - >-
+            --query-rich-rule=rule family="ipv4" source
+            ipset='molecule-test' port port=12345 protocol=tcp accept
+          - --permanent
+          - "--zone=public"
+      register: unrelated_same_shape_ipset_rule
+      changed_when: false
+      failed_when: unrelated_same_shape_ipset_rule.rc != 0
+
+    - name: "Recreate ipset to clean up unrelated test rules"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - "--new-ipset=molecule-test"
+          - --type=hash:ip
+          - --permanent
+      changed_when: true
+
+    - name: "Remove unrelated test ipset rich rule"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - >-
+            --remove-rich-rule=rule family="ipv4" source
+            ipset='molecule-test' log prefix="unrelated-" accept
+          - --permanent
+          - "--zone=public"
+      changed_when: true
+
+    - name: "Remove unrelated same-shape test ipset rich rule"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - >-
+            --remove-rich-rule=rule family="ipv4" source
+            ipset='molecule-test' port port=12345 protocol=tcp accept
+          - --permanent
+          - "--zone=public"
+      changed_when: true
+
+    - name: "Remove recreated ipset"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "ipset_absent"
 
     - name: "Remove Firewalld package"
       ansible.builtin.include_role:

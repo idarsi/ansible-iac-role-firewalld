@@ -21,27 +21,76 @@
   register: ipsets
   changed_when: false
 
-- name: "Collecting rich rules"
-  ansible.builtin.command: >
-    firewall-cmd
-    --list-rich-rules
-    --permanent
-  register: rich_rules
-  changed_when: false
-
-- name: "Creating list of rich rules that match our ipsets"
+- name: "Creating exact configured inbound port rule list"
   ansible.builtin.set_fact:
-    rich_rule_list: "{{ (rich_rule_list | default([])) + (rich_rules.stdout.splitlines() | select('search', 'ipset=\"' + item.name + '\"') | list) }}"
-  loop: "{{ fw_ipsets }}"
+    expected_ipset_rules: >-
+      {{ expected_ipset_rules | default([]) + [
+         'rule family="ipv4" source ipset="' ~ item.0.name ~ '"' ~
+         ' port port=' ~ (item.1 | split('/') | first) ~
+         ' protocol=' ~ (item.1 | split('/') | last) ~ ' accept',
+         'rule source ipset="' ~ item.0.name ~ '"' ~
+         ' port port=' ~ (item.1 | split('/') | first) ~
+         ' protocol=' ~ (item.1 | split('/') | last) ~ ' accept'] }}
+  loop: >-
+    {{ fw_ipsets | selectattr('in.ports', 'defined')
+       | subelements('in.ports') }}
+
+- name: "Creating exact configured inbound service rule list"
+  ansible.builtin.set_fact:
+    expected_ipset_rules: >-
+      {{ expected_ipset_rules | default([]) + [
+         'rule family="ipv4" source ipset="' ~ item.0.name ~ '"' ~
+         ' service name=' ~ item.1 ~ ' accept',
+         'rule source ipset="' ~ item.0.name ~ '"' ~
+         ' service name=' ~ item.1 ~ ' accept'] }}
+  loop: >-
+    {{ fw_ipsets | selectattr('in.services', 'defined')
+       | subelements('in.services') }}
+
+- name: "Creating exact configured outbound port rule list"
+  ansible.builtin.set_fact:
+    expected_ipset_rules: >-
+      {{ expected_ipset_rules | default([]) + [
+         'rule family="ipv4" destination ipset="' ~ item.0.name ~ '"' ~
+         ' port port=' ~ (item.1 | split('/') | first) ~
+         ' protocol=' ~ (item.1 | split('/') | last) ~ ' accept'] }}
+  loop: >-
+    {{ fw_ipsets | selectattr('out.ports', 'defined')
+       | subelements('out.ports') }}
+
+- name: "Creating exact configured outbound service rule list"
+  ansible.builtin.set_fact:
+    expected_ipset_rules: >-
+      {{ expected_ipset_rules | default([]) + [
+         'rule family="ipv4" destination ipset="' ~ item.0.name ~ '"' ~
+         ' service name=' ~ item.1 ~ ' accept'] }}
+  loop: >-
+    {{ fw_ipsets | selectattr('out.services', 'defined')
+       | subelements('out.services') }}
+
+- name: "Checking whether configured ipset rules exist in the zone"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--zone={{ fw_zone }}"
+      - "--query-rich-rule={{ item }}"
+      - --permanent
+  loop: "{{ expected_ipset_rules | default([]) }}"
+  register: queried_ipset_rules
+  changed_when: false
+  failed_when: queried_ipset_rules.rc not in [0, 1]
 
 - name: "Ensuring rich rules are deleted from ipsets"
-  ansible.builtin.command: >
-    firewall-cmd
-    --permanent
-    --remove-rich-rule="{{ item }}"
-  loop: "{{ rich_rule_list }}"
-  register: my_output
-  changed_when: my_output.stdout == "success"
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--zone={{ fw_zone }}"
+      - "--remove-rich-rule={{ item.item }}"
+      - --permanent
+  loop: "{{ queried_ipset_rules.results | default([]) }}"
+  when: item.rc == 0
+  register: removed_ipset_rules
+  changed_when: removed_ipset_rules.stdout == "success"
 
 - name: "Ensuring ipset is absent"
   ansible.builtin.command: >

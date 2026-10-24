@@ -3,13 +3,11 @@ scenario:
   name: kvm_states
   test_sequence:
     - dependency
-    - cleanup
     - destroy
     - syntax
     - create
     - converge
     - verify
-    - cleanup
     - destroy
 
 dependency:
