@@ -54,7 +54,7 @@ State | Behavior
 `present` | Install Firewalld and converge optional shared filesystem/cron resources; does not start the service.
 `absent` | Remove the Firewalld package and optional shared resources represented in the blueprint. Firewalld configuration is not explicitly purged.
 `install` | Run `present`, start Firewalld, create ipsets, populate entries and rich rules, then reload.
-`started` / `stopped` | Start or stop the Firewalld systemd service.
+`started` / `stopped` | Start and enable Firewalld at boot, or stop and disable it at boot.
 `reloaded` | Run `firewall-cmd --reload`.
 `port_open` / `port_closed` | Add or remove the `fw_port`/`fw_protocol` pair permanently from `fw_zone`.
 `service_open` / `service_closed` | Add or remove `fw_service` permanently from `fw_zone`.
