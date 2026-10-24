@@ -1,13 +1,17 @@
 > **Maturity State: Alpha**<br>
-> **RC Readiness: 66%**
+> **RC Readiness: 63%**
 >
-> Reassessed on `update/firewalld-molecule-kvm-states` at `3079f137` with
-> uncommitted working-tree changes. Rocky Linux 9 KVM `molecule test -s
-> kvm_states` succeeded through syntax, create, converge, verify, and destroy
-> (6 successful actions), exercising all documented public states and checking
-> rich-rule closure. This scenario has no idempotence phase, so automated
-> idempotence evidence remains absent and the Alpha state cap applies. See
-> [TESTING.md](TESTING.md) for coverage boundaries.
+> Assessed on `update/ipset-absent-rule-matching` at `7dd55b5` with the existing
+> uncommitted changes in `tasks/ipset_absent.yml` and
+> `molecule/kvm_states/converge.yml` included. Category scores: Scope 9/12;
+> Functionality 16/20; Validation and Safety 12/20; Convergence and Recovery
+> 7.5/13; Testing and CI 13.5/25; Documentation and Release Hygiene 5/10
+> (63 total points). The
+> Alpha cap applies because representative mutating states lack automated
+> idempotence verification. Testing is currently on Rocky Linux 9 only; the
+> other declared OS/version combinations, check mode, and shared filesystem/cron
+> resources lack scenario coverage. CI configures static checks, but pass status
+> at this task ref is unavailable. See [TESTING.md](TESTING.md).
 
 ANSIBLE-IAC-ROLE-FIREWALLD
 ==========================
