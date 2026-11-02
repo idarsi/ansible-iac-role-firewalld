@@ -1,11 +1,11 @@
-> **Maturity State: Alpha**<br>
-> **RC Readiness: 65%**
+> **Maturity State: Beta**<br>
+> **RC Readiness: 67%**
 >
-> Assessed ref: `b6cd07d`. The score increased 2 points from the prior 63% after
-> adding a configured automated idempotence test (scorecard 5.4: partial, 2/4);
-> its runtime result remains unverified, and the KVM idempotence result is
-> pending. No passing result is claimed. Final state remains Alpha under the
-> mandatory cap until representative mutating-state idempotence evidence passes.
+> Assessed ref: `ad32ca4`. The score increased 2 points from the prior 65%
+> because idempotence tests now receive full credit (scorecard 5.4: 4/4).
+> `molecule test -s kvm_idempotence` passed, with `changed=0` on its second run.
+> The Rocky Linux 10 attempt was blocked before VM setup because required KVM
+> environment variables were unset; it provides no Rocky Linux 10 runtime result.
 
 ANSIBLE-IAC-ROLE-FIREWALLD
 ==========================
