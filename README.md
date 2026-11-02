@@ -1,8 +1,11 @@
 > **Maturity State: Alpha**<br>
 > **RC Readiness: 65%**
 >
-> Assessed ref: `b6cd07d`. KVM idempotence result is pending; no passing result
-> is claimed. This retains the prior 65% RC readiness score.
+> Assessed ref: `b6cd07d`. The score increased 2 points from the prior 63% after
+> adding a configured automated idempotence test (scorecard 5.4: partial, 2/4);
+> its runtime result remains unverified, and the KVM idempotence result is
+> pending. No passing result is claimed. Final state remains Alpha under the
+> mandatory cap until representative mutating-state idempotence evidence passes.
 
 ANSIBLE-IAC-ROLE-FIREWALLD
 ==========================
