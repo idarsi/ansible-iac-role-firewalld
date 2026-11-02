@@ -22,6 +22,8 @@ ansible:
   playbooks:
     create: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/create.yml"
     destroy: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/destroy.yml"
+    converge: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm_states/converge.yml"
+    verify: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm_states/verify.yml"
 
 platforms:
   - name: firewalld-rocky10
