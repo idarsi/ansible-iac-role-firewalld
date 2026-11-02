@@ -71,6 +71,17 @@
             name: ansible-iac-role-firewalld
           vars:
             state: "port_open"
+        - name: "Repeat stable port convergence and capture role changes"
+          ansible.builtin.include_role:
+            name: ansible-iac-role-firewalld
+          vars:
+            state: "port_open"
+          register: firewalld_port_open_second_run
+        - name: "Assert stable role-only second run is unchanged"
+          ansible.builtin.assert:
+            that:
+              - not firewalld_port_open_second_run.changed
+            fail_msg: "The firewalld port_open state changed on its second run"
         - ansible.builtin.command:
             argv:
               - firewall-cmd
