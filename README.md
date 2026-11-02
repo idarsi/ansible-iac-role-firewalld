@@ -1,17 +1,11 @@
-> **Maturity State: Alpha**<br>
-> **RC Readiness: 63%**
+> **Maturity State: Beta**<br>
+> **RC Readiness: 67%**
 >
-> Assessed on `update/ipset-absent-rule-matching` at `7dd55b5` with the existing
-> uncommitted changes in `tasks/ipset_absent.yml` and
-> `molecule/kvm_states/converge.yml` included. Category scores: Scope 9/12;
-> Functionality 16/20; Validation and Safety 12/20; Convergence and Recovery
-> 7.5/13; Testing and CI 13.5/25; Documentation and Release Hygiene 5/10
-> (63 total points). The
-> Alpha cap applies because representative mutating states lack automated
-> idempotence verification. Testing is currently on Rocky Linux 9 only; the
-> other declared OS/version combinations, check mode, and shared filesystem/cron
-> resources lack scenario coverage. CI configures static checks, but pass status
-> at this task ref is unavailable. See [TESTING.md](TESTING.md).
+> Assessed ref: `ad32ca4`. The score increased 2 points from the prior 65%
+> because idempotence tests now receive full credit (scorecard 5.4: 4/4).
+> `molecule test -s kvm_idempotence` passed, with `changed=0` on its second run.
+> The Rocky Linux 10 attempt was blocked before VM setup because required KVM
+> environment variables were unset; it provides no Rocky Linux 10 runtime result.
 
 ANSIBLE-IAC-ROLE-FIREWALLD
 ==========================

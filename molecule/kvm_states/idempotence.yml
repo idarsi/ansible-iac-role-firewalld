@@ -1,0 +1,22 @@
+---
+- name: "Converge firewalld port state for Molecule idempotence action"
+  hosts: all
+  become: true
+  vars:
+    iac_blueprint:
+      firewalld:
+        ipsets: []
+    fw_port: "10022"
+    fw_protocol: "tcp"
+  tasks:
+    - name: "Ensure firewalld is installed and configured"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "install"
+
+    - name: "Ensure test port is open"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "port_open"

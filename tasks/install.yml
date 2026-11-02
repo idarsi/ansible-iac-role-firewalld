@@ -7,6 +7,10 @@
 #
 ###############################################################################
 
+- name: "Initializing firewalld configuration change tracking"
+  ansible.builtin.set_fact:
+    fw_install_configuration_changed: false
+
 - name: "Ensure firewalld is present"
   ansible.builtin.include_tasks: present.yml
 
@@ -16,14 +20,41 @@
 - name: "Ensure ipsets are present"
   ansible.builtin.include_tasks: ipset_present.yml
 
+- name: "Record whether ipsets changed"
+  ansible.builtin.set_fact:
+    fw_install_configuration_changed: >-
+      {{ (fw_ipset_creations.changed | default(false)) or
+         (fw_ipset_description_updates.changed | default(false)) }}
+
 - name: "Ensure ipset ips are present"
   ansible.builtin.include_tasks: ipset_ip_present.yml
+
+- name: "Record whether ipset entries changed"
+  ansible.builtin.set_fact:
+    fw_install_configuration_changed: >-
+      {{ (fw_install_configuration_changed | default(false)) or
+         (fw_ipset_entry_additions.changed | default(false)) }}
 
 - name: "Ensure ipset ports are open"
   ansible.builtin.include_tasks: ipset_port_open.yml
 
+- name: "Record whether ipset port rules changed"
+  ansible.builtin.set_fact:
+    fw_install_configuration_changed: >-
+      {{ (fw_install_configuration_changed | default(false)) or
+         (fw_in_port_rule_additions.changed | default(false)) or
+         (fw_out_port_rule_additions.changed | default(false)) }}
+
 - name: "Ensure ipset services are open"
   ansible.builtin.include_tasks: ipset_service_open.yml
 
+- name: "Record whether ipset service rules changed"
+  ansible.builtin.set_fact:
+    fw_install_configuration_changed: >-
+      {{ (fw_install_configuration_changed | default(false)) or
+         (fw_in_service_rule_additions.changed | default(false)) or
+         (fw_out_service_rule_additions.changed | default(false)) }}
+
 - name: "Ensure rules are reloaded"
   ansible.builtin.include_tasks: reloaded.yml
+  when: fw_install_configuration_changed | default(false)
