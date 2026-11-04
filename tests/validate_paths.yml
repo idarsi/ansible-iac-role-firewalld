@@ -74,6 +74,33 @@
           binds:
             - source: "/srv/firewalld-test"
               target: "/var/lib/../etc"
+      - name: "directory relative path"
+        expected_task: "Checking filesystem paths"
+        message_token: "PATH_VALIDATION"
+        firewalld:
+          directories:
+            - path: "relative/path"
+      - name: "file missing payload"
+        expected_task: "Checking file payload fields"
+        message_token: "File records require"
+        firewalld:
+          files:
+            - path: "/var/lib/firewalld-test/missing-payload"
+      - name: "file conflicting payloads"
+        expected_task: "Checking file payload fields"
+        message_token: "File records require"
+        firewalld:
+          files:
+            - path: "/var/lib/firewalld-test/conflict"
+              content: "content"
+              src: "/var/lib/firewalld-test/source"
+      - name: "invalid cron filename"
+        expected_task: "Checking cron record fields"
+        message_token: "Cron records require"
+        firewalld:
+          cron:
+            - name: "test job"
+              cron_file: "../unsafe"
   tasks:
     - name: "Validate safe absolute filesystem and bind paths"
       ansible.builtin.include_tasks: "../tasks/validate/validate_inventory.yml"
@@ -81,8 +108,15 @@
         iac_blueprint: "{{ valid_blueprint }}"
 
     - name: "Check each unsafe path is rejected by the inventory validator"
-      ansible.builtin.include_tasks: "assert_path_rejected.yml"
-      loop: "{{ rejected_blueprints }}"
+      ansible.builtin.include_tasks: "assert_validation_rejected.yml"
+      loop: "{{ rejected_blueprints | selectattr('expected_task', 'defined') | list }}"
+      loop_control:
+        loop_var: rejected_case
+        label: "{{ rejected_case.name }}"
+
+    - name: "Check non-path input failures have actionable validation messages"
+      ansible.builtin.include_tasks: "assert_validation_rejected.yml"
+      loop: "{{ rejected_blueprints | rejectattr('expected_task', 'defined') | list }}"
       loop_control:
         loop_var: rejected_case
         label: "{{ rejected_case.name }}"

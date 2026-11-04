@@ -1,6 +1,6 @@
 ---
 scenario:
-  name: kvm_rocky10
+  name: kvm-states
   test_sequence:
     - dependency
     - destroy
@@ -22,15 +22,13 @@ ansible:
   playbooks:
     create: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/create.yml"
     destroy: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/destroy.yml"
-    converge: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm_states/converge.yml"
-    verify: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm_states/verify.yml"
 
 platforms:
-  - name: firewalld-rocky10
-    install_source: "${IDARSI_TEST_KVM_INSTALL_SOURCE_ROCKY10}"
+  - name: firewalld-states-rocky9
+    install_source: "${IDARSI_TEST_KVM_INSTALL_SOURCE}"
     kickstart: "${IDARSI_TEST_ENVIRONMENT}/examples/molecule-kvm/rocky9-10.ks.tmpl"
     network: "idarsi-test"
-    ipv4_address: "192.168.250.222"
+    ipv4_address: "192.168.250.221"
     memory_mb: 2048
     vcpus: 2
     disk_size_gb: 30

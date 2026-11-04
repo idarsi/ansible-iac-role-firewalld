@@ -20,6 +20,18 @@
                 - "9443/tcp"
               services:
                 - "https"
+        directories:
+          - path: "/var/tmp/firewalld-molecule"
+            mode: "0750"
+        files:
+          - path: "/var/tmp/firewalld-molecule/config"
+            content: "firewalld molecule shared filesystem test"
+            mode: "0640"
+        cron:
+          - name: "firewalld molecule test"
+            cron_file: "firewalld-molecule-test"
+            minute: "17"
+            job: "/usr/bin/true"
     fw_port: "10022"
     fw_protocol: "tcp"
     fw_service: "https"
@@ -58,6 +70,33 @@
       register: ipset_entry
       changed_when: false
       failed_when: ipset_entry.rc != 0
+
+    - name: "Verify ipset definition and configured metadata"
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - "--permanent"
+          - "--info-ipset=molecule-test"
+      register: ipset_info
+      changed_when: false
+      failed_when: >-
+        ipset_info.rc != 0 or
+        'type: hash:net' not in ipset_info.stdout or
+        '192.0.2.10/32' not in ipset_info.stdout
+
+    - name: "Read shared filesystem and cron resources"
+      ansible.builtin.slurp:
+        src: "{{ item }}"
+      loop:
+        - "/var/tmp/firewalld-molecule/config"
+        - "/etc/cron.d/firewalld-molecule-test"
+      register: shared_resource_contents
+
+    - name: "Verify shared resources contain expected values"
+      ansible.builtin.assert:
+        that:
+          - "'firewalld molecule shared filesystem test' in (shared_resource_contents.results[0].content | b64decode)"
+          - "'/usr/bin/true' in (shared_resource_contents.results[1].content | b64decode)"
 
     - name: "Ensure Firewalld is present using the targeted state"
       ansible.builtin.include_role:
@@ -141,14 +180,44 @@
             name: ansible-iac-role-firewalld
           vars:
             state: "ipset_ip_present"
+        - name: "Verify ipset entry present before removal"
+          ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--ipset=molecule-test"
+              - "--query-entry=192.0.2.10/32"
+          register: ipset_entry_before_removal
+          changed_when: false
+          failed_when: ipset_entry_before_removal.rc != 0
         - ansible.builtin.include_role:
             name: ansible-iac-role-firewalld
           vars:
             state: "ipset_ip_absent"
+        - name: "Verify ipset entry absent state"
+          ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--ipset=molecule-test"
+              - "--query-entry=192.0.2.10/32"
+          register: ipset_entry_after_removal
+          changed_when: false
+          failed_when: ipset_entry_after_removal.rc != 1
         - ansible.builtin.include_role:
             name: ansible-iac-role-firewalld
           vars:
             state: "ipset_ip_present"
+        - name: "Verify ipset entry present state"
+          ansible.builtin.command:
+            argv:
+              - firewall-cmd
+              - "--permanent"
+              - "--ipset=molecule-test"
+              - "--query-entry=192.0.2.10/32"
+          register: ipset_entry_present
+          changed_when: false
+          failed_when: ipset_entry_present.rc != 0
 
     - name: "Exercise ipset port and service rich-rule states"
       block:

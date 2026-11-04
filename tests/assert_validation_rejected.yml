@@ -1,9 +1,9 @@
 ---
-- name: "Expect validator rejection for {{ rejected_case.name }}"
+- name: "Expect validation rejection for {{ rejected_case.name }}"
   ansible.builtin.set_fact:
     path_validator_passed: false
 
-- name: "Expect validator rejection for {{ rejected_case.name }}"
+- name: "Expect validation rejection for {{ rejected_case.name }}"
   block:
     - name: "Run inventory validator against unsafe path"
       ansible.builtin.include_tasks: "../tasks/validate/validate_inventory.yml"
@@ -23,10 +23,10 @@
       ansible.builtin.assert:
         that:
           - not path_validator_passed
-          - ansible_failed_task.name in ["Checking filesystem paths", "Checking file source paths", "Checking bind paths"]
+          - ansible_failed_task.name == rejected_case.expected_task | default(ansible_failed_task.name)
           - >-
             ansible_failed_result.results | default([]) | map(attribute='msg')
-            | select('search', 'PATH_VALIDATION') | list | length > 0
+            | select('search', rejected_case.message_token | default('PATH_VALIDATION')) | list | length > 0
         fail_msg: >-
           Fixture {{ rejected_case.name }} failed outside the expected path validation assertion:
           {{ ansible_failed_task.name }}: {{ ansible_failed_result.msg | default('no failure message') }}
