@@ -5,7 +5,13 @@
   vars:
     iac_blueprint:
       firewalld:
-        ipsets: []
+        ipsets:
+          - name: "molecule-idempotence"
+            entries:
+              - "192.0.2.20/32"
+            in:
+              ports:
+                - "10443/tcp"
     fw_port: "10022"
     fw_protocol: "tcp"
   tasks:
@@ -20,3 +26,15 @@
         name: ansible-iac-role-firewalld
       vars:
         state: "port_open"
+
+    - name: "Ensure ipset entry remains present"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "ipset_ip_present"
+
+    - name: "Ensure ipset port rich rule remains open"
+      ansible.builtin.include_role:
+        name: ansible-iac-role-firewalld
+      vars:
+        state: "ipset_port_open"

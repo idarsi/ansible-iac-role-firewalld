@@ -8,20 +8,30 @@ coverage and is not run by GitHub Actions.
 
 Platform/image | Ansible or application versions | Molecule scenarios | Main coverage
 ---------------|---------------------------------|--------------------|--------------
-Rocky Linux 9 KVM guest from the shared Rocky 9 install ISO | Ansible Core 2.20.8 (`ansible-current`) | `kvm_states` | Validation-only state; installation; present/absent; started/stopped with boot enablement checks; permanent port and service open/close; ipset create/remove, entry add/remove, port/service rich-rule open/close; reload; package-removal verification.
-Rocky Linux 10 KVM guest from the shared Rocky 10 install ISO | Ansible Core 2.20.8 (`ansible-current`) | `kvm_rocky10` | Same all-states coverage as `kvm_states`, using its converge and verify playbooks and a separate guest address.
-Rocky Linux 9 KVM guest from the shared Rocky 9 install ISO | Ansible Core 2.20.8 (`ansible-current`) | `kvm_idempotence` | Focused installation and `port_open` convergence; Molecule's idempotence action reruns the playbook and fails when any task reports changed.
+Rocky Linux 9 KVM guest from the shared Rocky 9 install ISO | Ansible Core 2.20.8 (`ansible-current`) | `kvm-states` | Validation-only state; installation; present/absent; started/stopped with boot enablement checks; permanent port and service open/close; ipset create/remove, entry add/remove, port/service rich-rule open/close; reload; package-removal verification.
+Rocky Linux 10 KVM guest from the shared Rocky 10 install ISO | Ansible Core 2.20.8 (`ansible-current`) | `kvm-rocky10` | Same all-states coverage as `kvm-states`, using its converge and verify playbooks and a separate guest address.
+Rocky Linux 9 KVM guest from the shared Rocky 9 install ISO | Ansible Core 2.20.8 (`ansible-current`) | `kvm-idempotence` | Focused installation, `port_open`, ipset-entry-present, and inbound ipset-port-rich-rule convergence; Molecule's idempotence action reruns the playbook and fails when any task reports changed.
 
-The `kvm_states` and `kvm_rocky10` scenarios exercise every documented public
+The `kvm-states` and `kvm-rocky10` scenarios exercise every documented public
 state on their respective Rocky guest. Idempotence is separately verified for
-installation and stable `port_open` convergence in `kvm_idempotence`; the
+installation and stable `port_open` convergence in `kvm-idempotence`; the
 Molecule idempotence action checks task-level changed results from a complete
 second playbook run, rather than the aggregate result of an `include_role` task.
-This does not establish idempotence for every mutating state. The
+The `kvm-states` play also checks the permanent ipset's type and entry, then
+queries the entry after both its absent and present states. Rich
+rule removal assertions verify all expected inbound/outbound and legacy rule
+forms are absent, while unrelated rules survive ipset removal. This does not
+establish idempotence for every mutating state. The idempotence scenario also
+converges an ipset entry and inbound port rich rule on each run. The states
+scenario verifies shared directory, file-content, and cron-file resources;
+bind-mount runtime behavior is not covered. Local validator tests require
+unsafe filesystem and cron/file records to fail at their expected validation
+task with a corresponding actionable error token. The
 scenarios do not establish automated coverage for Rocky Linux 8 or any RHEL
 release; those remain support claims without KVM scenario coverage. They also
-do not cover check-mode behavior, optional shared filesystem/cron resources, or
-invalid blueprint rejection-message coverage.
+do not cover check-mode behavior or bind-mount runtime behavior. CI syntax-checks the validator helper playbook and
+the Molecule converge/idempotence playbooks; it does not execute those test
+plays.
 
 ## CI checks
 
@@ -47,10 +57,10 @@ source .venv/ansible-current/bin/activate
 cd /path/to/ansible-iac-role-firewalld
 ANSIBLE_ROLES_PATH=.. ansible-lint --profile production
 ANSIBLE_ROLES_PATH=.. ansible-playbook --syntax-check \
-  molecule/kvm_states/converge.yml
-molecule test -s kvm_states
-molecule test -s kvm_rocky10
-molecule test -s kvm_idempotence
+  molecule/kvm-states/converge.yml
+molecule test -s kvm-states
+molecule test -s kvm-rocky10
+molecule test -s kvm-idempotence
 ```
 
 Run one scenario at a time. The Rocky 9 and Rocky 10 scenarios use distinct

@@ -36,4 +36,8 @@ jobs:
       - name: Run Molecule playbook syntax check
         env:
           ANSIBLE_ROLES_PATH: ..
-        run: ansible-playbook --syntax-check molecule/kvm_states/converge.yml
+        run: |
+          ansible-playbook --syntax-check molecule/kvm-states/converge.yml
+          ansible-playbook --syntax-check molecule/kvm-states/idempotence.yml
+          ansible-playbook --syntax-check molecule/kvm-states/verify.yml
+          ansible-playbook --syntax-check tests/validate_paths.yml

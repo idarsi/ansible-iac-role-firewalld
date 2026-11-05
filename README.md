@@ -1,11 +1,12 @@
 > **Maturity State: Beta**<br>
-> **RC Readiness: 67%**
+> **RC Readiness: 73%**
 >
-> Assessed ref: `ad32ca4`. The score increased 2 points from the prior 65%
-> because idempotence tests now receive full credit (scorecard 5.4: 4/4).
-> `molecule test -s kvm_idempotence` passed, with `changed=0` on its second run.
-> The Rocky Linux 10 attempt was blocked before VM setup because required KVM
-> environment variables were unset; it provides no Rocky Linux 10 runtime result.
+> Assessed working tree: branch `update/firewalld-test-coverage`, based on
+> `a42138a` (`main`); this assessment includes the current uncommitted changes.
+> `kvm-states` and `kvm-rocky10` passed in ansible-current after fixing an
+> assertion ordering bug. CI results for this working tree remain pending; the
+> coverage matrix does not provide automated runtime evidence for Rocky Linux
+> 8 or any RHEL release. The configured CI checks do not execute KVM scenarios.
 
 ANSIBLE-IAC-ROLE-FIREWALLD
 ==========================

@@ -1,13 +1,13 @@
 ---
 scenario:
-  name: kvm_idempotence
+  name: kvm-rocky10
   test_sequence:
     - dependency
     - destroy
     - syntax
     - create
     - converge
-    - idempotence
+    - verify
     - destroy
 
 dependency:
@@ -22,14 +22,15 @@ ansible:
   playbooks:
     create: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/create.yml"
     destroy: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/destroy.yml"
-    converge: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm_states/idempotence.yml"
+    converge: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm-states/converge.yml"
+    verify: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm-states/verify.yml"
 
 platforms:
-  - name: firewalld-idempotence-rocky9
-    install_source: "${IDARSI_TEST_KVM_INSTALL_SOURCE}"
+  - name: firewalld-rocky10
+    install_source: "${IDARSI_TEST_KVM_INSTALL_SOURCE_ROCKY10}"
     kickstart: "${IDARSI_TEST_ENVIRONMENT}/examples/molecule-kvm/rocky9-10.ks.tmpl"
     network: "idarsi-test"
-    ipv4_address: "192.168.250.223"
+    ipv4_address: "192.168.250.222"
     memory_mb: 2048
     vcpus: 2
     disk_size_gb: 30
