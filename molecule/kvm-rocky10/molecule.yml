@@ -18,13 +18,6 @@ driver:
   options:
     managed: true
 
-ansible:
-  playbooks:
-    create: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/create.yml"
-    destroy: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/destroy.yml"
-    converge: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm-states/converge.yml"
-    verify: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm-states/verify.yml"
-
 platforms:
   - name: firewalld-rocky10
     install_source: "${IDARSI_TEST_KVM_INSTALL_SOURCE_ROCKY10}"
@@ -39,6 +32,11 @@ platforms:
 
 provisioner:
   name: ansible
+  playbooks:
+    create: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/create.yml"
+    destroy: "${IDARSI_TEST_ENVIRONMENT}/molecule/kvm/destroy.yml"
+    converge: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm-states/converge.yml"
+    verify: "${MOLECULE_PROJECT_DIRECTORY}/molecule/kvm-states/verify.yml"
   env:
     ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/.."
     ANSIBLE_REMOTE_TMP: "/tmp"

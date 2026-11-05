@@ -1,12 +1,13 @@
 > **Maturity State: Beta**<br>
 > **RC Readiness: 73%**
 >
-> Assessed working tree: branch `update/firewalld-test-coverage`, based on
-> `a42138a` (`main`); this assessment includes the current uncommitted changes.
-> `kvm-states` and `kvm-rocky10` passed in ansible-current after fixing an
-> assertion ordering bug. CI results for this working tree remain pending; the
-> coverage matrix does not provide automated runtime evidence for Rocky Linux
-> 8 or any RHEL release. The configured CI checks do not execute KVM scenarios.
+> Assessed ref: `09c5e98`. Nine KVM Molecule scenario runs passed: `kvm-states`,
+> `kvm-rocky10`, and `kvm-idempotence`, each with ansible-min,
+> ansible-current, and ansible-next. The two states scenarios provide broad
+> runtime state coverage on Rocky Linux 9 and 10; idempotence coverage is
+> focused on Rocky Linux 9. CI results at this commit are unconfirmed. Rocky
+> Linux 8 and RHEL runtime coverage remain gaps; GitHub Actions does not execute
+> KVM scenarios.
 
 ANSIBLE-IAC-ROLE-FIREWALLD
 ==========================
